@@ -12,9 +12,12 @@
 
 import sys
 import struct
+import datetime
+import time
+from local_exceptions import *
 
 magic_string = "MPS7"
-supported_version = '1'
+tested_version = '1'
 exit_on_unsupported_version = False
 
 
@@ -30,28 +33,22 @@ endAutopay = 3
 # 'I'  - (4 bytes) uint32         - # of records
 header_format = '> 4s B I'
 
-def read_header(buf):
+def read_header(buf, version=tested_version):
     ''' 
     Parse Header for MPS7 file. Return number of records.
+    If file contains version different than supported version
+    number, pass as argument to suppress the error.
     '''
 
     header = struct.unpack_from(header_format, buf, 0)
 
     magic = str(header[0],'utf-8')
     if( magic != magic_string ):
-        print( f'Warning: unsupported file type {magic}', file=sys.stderr )
-        if TEST:
-            return -99, -99
-        sys.exit()
+        raise UnsupportedFileTypeException
 
     file_version = str(header[1])
-    if file_version != supported_version:
-        # support for other versions should be verified
-        print( f'Warning: unsupported {magic_string} version {file_version}', file=sys.stderr)
-        if TEST:
-            return -99, -99
-        if exit_on_unsupported_version:
-            sys.exit()
+    if file_version != version:
+        raise UnsupportedFileVersion
 
     number_of_records = header[2]
     header_size = struct.calcsize(header_format)
@@ -79,7 +76,7 @@ def read_transaction( buf, pos):
     amount = 0.0
     txn_type = transaction[0]
     timestamp = transaction[1]
-    user_id = transaction[2]
+    user_id = str(transaction[2])
     if transaction[0] in [debit, credit]:
         amount = struct.unpack_from(amount_format, buf, pos)[0] # don't return as tuple
         num_bytes += struct.calcsize(amount_format)
@@ -88,8 +85,6 @@ def read_transaction( buf, pos):
 
 
 def test_read_header():
-    header_format = '>4sBI'
-
     x = struct.pack( header_format, b'MPS7', 0x01, 99 )
     nrecs, nbytes = read_header(x)
     print( f'{x} --> header_size: {nbytes}, # records: {nrecs}' )
@@ -102,8 +97,38 @@ def test_read_header():
     nrecs, nbytes = read_header(x)
     print( f'{x} --> header_size: {nbytes}, # records: {nrecs}' )
 
+def test_read_transaction():
+    x = struct.pack( transaction_format + 'd', credit, int(time.time()), 12345678, 1.25 )
+    print_transaction(x)
+    x = struct.pack( transaction_format + 'd', credit, int(time.time()), 12345678, 1.75 )
+    print_transaction(x)
+    x = struct.pack( transaction_format + 'd', debit, int(time.time()), 12345678, 1.50 )
+    print_transaction(x)
+    x = struct.pack( transaction_format, startAutopay, int(time.time()), 12345678 )
+    print_transaction(x)
+
+def print_transaction(x):
+    size, what, when, who, how_much = read_transaction(x,0)
+    print( f'{x} --> rec_size: {size} {when} {who} ', end='')
+    if what == startAutopay:
+        print('start')
+    elif what == endAutopay:
+        print('end')
+    elif what == credit:
+        print(f'{how_much:.2f}')
+    elif what == debit:
+        print(f'-{how_much:.2f}')
+    else:
+        print('unrecognized {what}')
+
 
 TEST = False
 if __name__ == '__main__':
     TEST = True
+    print('\n\nTest: read header')
     test_read_header()
+
+    print('\n\nTest: read data records')
+    test_read_transaction()
+
+    print()
