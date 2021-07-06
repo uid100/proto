@@ -1,7 +1,7 @@
 # COMMENTS
 
-## Assumptions
-
+## Implementation
+_(So much fun!)_
 - The Python module files __MPS7.py__ and __transaction.py__ contain some amount of unit testing, and can be called independently if set as executable. __custom_exceptions.py__ defines local exception types. The __proto.py__ contains the main() entry point and is dependent on the other included files.
 - The Python interpreter does not need to be up-to-date, but does require Python3. My development environment is ver 3.9.0.
 - By default, the code is looking for an input (MPS7) data log file named __'txnlog.dat'__ in the local directory, but this maybe changed with a command line option.
@@ -46,8 +46,8 @@ print summary usage data
 ```
   ./proto.py --help
 ```
-(main entry point:)
-to produce the requested output:
+main entry point
+(to produce the requested output):
 ```
   ./proto.py -r all -s -u 2456938384156277127
 ```
